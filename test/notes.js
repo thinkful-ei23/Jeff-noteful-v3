@@ -8,8 +8,12 @@ const app = require('../server');
 const { TEST_MONGODB_URI } = require('../config');
 
 const Note = require('../models/note');
+const Folder = require('../models/folder');
+const Tag = require('../models/tag');
 
 const seedNotes = require('../db/seed/notes');
+const seedFolders = require('../db/seed/folders');
+const seedTags = require('../db/seed/tags');
 
 const expect = chai.expect;
 chai.use(chaiHttp);
@@ -21,9 +25,23 @@ describe('Noteful API - Notes', function () {
       .then(() => mongoose.connection.db.dropDatabase());
   });
 
-  beforeEach(function () {
-    return Note.insertMany(seedNotes);
-  });
+  // beforeEach(function () {
+  //   return Note.insertMany(seedNotes);
+  // });
+
+	beforeEach(function () {
+		return Promise.all([
+			Note.insertMany(seedNotes),
+			Folder.insertMany(seedFolders),
+			Tag.insertMany(seedTags)
+		])
+			.then(() => {
+				return Promise.all([
+					Folder.createIndexes(),
+					Tag.createIndexes()
+				]);
+			});
+	});
 
   afterEach(function () {
     return mongoose.connection.db.dropDatabase();
@@ -106,6 +124,24 @@ describe('Noteful API - Notes', function () {
         });
     });
 
+	  it('should return correct search results for a folderId query', function () {
+		  let data;
+		  return Folder.findOne()
+			  .then((_data) => {
+				  data = _data;
+				  return Promise.all([
+					  Note.find({ folderId: data.id }),
+					  chai.request(app).get(`/api/notes?folderId=${data.id}`)
+				  ]);
+			  })
+			  .then(([data, res]) => {
+				  expect(res).to.have.status(200);
+				  expect(res).to.be.json;
+				  expect(res.body).to.be.a('array');
+				  expect(res.body).to.have.length(data.length);
+			  });
+	  });
+
     it('should return an empty array for an incorrect query', function () {
       const searchTerm = 'NotValid';
       // const re = new RegExp(searchTerm, 'i');
@@ -145,7 +181,7 @@ describe('Noteful API - Notes', function () {
           expect(res).to.have.status(200);
           expect(res).to.be.json;
           expect(res.body).to.be.an('object');
-          expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+          expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId', 'tags');
 
 	        // 3) then compare database results to API response
 
@@ -199,7 +235,7 @@ describe('Noteful API - Notes', function () {
           expect(res).to.have.header('location');
           expect(res).to.be.json;
           expect(res.body).to.be.a('object');
-          expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+          expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'tags');
 
           // 2) then call the database
 
@@ -253,7 +289,7 @@ describe('Noteful API - Notes', function () {
           expect(res).to.have.status(200);
           expect(res).to.be.json;
           expect(res.body).to.be.a('object');
-          expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt');
+          expect(res.body).to.have.all.keys('id', 'title', 'content', 'createdAt', 'updatedAt', 'folderId', 'tags');
           expect(res.body.id).to.equal(data.id);
           expect(res.body.title).to.equal(updateItem.title);
           expect(res.body.content).to.equal(updateItem.content);
