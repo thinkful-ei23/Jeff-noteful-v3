@@ -5,9 +5,8 @@ $(document).ready(function () {
   noteful.bindEventListeners();
 
   Promise.all([
-    api.search('/api/notes'),
-    // api.search('/api/folders'),
-    // api.search('/api/tags')
+    api.search('/api/notes'), api.search('/api/folders'),
+    api.search('/api/tags')
   ])
     .then(([
       notes,
