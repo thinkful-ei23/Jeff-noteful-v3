@@ -9,7 +9,7 @@ const { TEST_MONGODB_URI } = require('../config');
 
 const Note = require('../models/note');
 const Folder = require('../models/folder');
-const Tag = require('../models/tag');
+const Tag = require('../models/tags');
 
 const seedNotes = require('../db/seed/notes');
 const seedFolders = require('../db/seed/folders');
