@@ -24,6 +24,9 @@ const noteful = (function () {
   }
 
   function render() {
+
+    $('.signup-login').toggle(!store.authorized);
+
     const notesList = generateNotesList(store.notes, store.currentNote);
     $('.js-notes-list').html(notesList);
 
@@ -54,7 +57,7 @@ const noteful = (function () {
   /**
    * GENERATE HTML FUNCTIONS
    */
-  function generateNotesList(list, currNote) {
+  function generateNotesList(list = [], currNote) {
     const listItems = list.map(item => `
       <li data-id="${item.id}" class="js-note-element ${currNote.id === item.id ? 'active' : ''}">
         <a href="#" class="name js-note-link">${item.title}</a>
@@ -67,7 +70,7 @@ const noteful = (function () {
     return listItems.join('');
   }
 
-  function generateFolderList(list, currQuery) {
+  function generateFolderList(list = [], currQuery) {
     const showAllItem = `
       <li data-id="" class="js-folder-item ${!currQuery.folderId ? 'active' : ''}">
         <a href="#" class="name js-folder-link">All</a>
@@ -82,12 +85,12 @@ const noteful = (function () {
     return [showAllItem, ...listItems].join('');
   }
 
-  function generateFolderSelect(list) {
+  function generateFolderSelect(list = []) {
     const notes = list.map(item => `<option value="${item.id}">${item.name}</option>`);
     return '<option value="">Select Folder:</option>' + notes.join('');
   }
 
-  function generateTagsList(list, currQuery) {
+  function generateTagsList(list = [], currQuery) {
     const showAllItem = `
       <li data-id="" class="js-tag-item ${!currQuery.tagId ? 'active' : ''}">
         <a href="#" class="name js-tag-link">All</a>
@@ -101,7 +104,7 @@ const noteful = (function () {
     return [showAllItem, ...listItems].join('');
   }
 
-  function generateTagsSelect(list) {
+  function generateTagsSelect(list = []) {
     const notes = list.map(item => `<option value="${item.id}">${item.name}</option>`);
     return notes.join('');
   }
@@ -362,6 +365,58 @@ const noteful = (function () {
     });
   }
 
+  function handleSignupSubmit() {
+    $('.js-signup-from').on('submit', event => {
+      event.preventDefault();
+
+      const signupForm = $(event.currentTarget);
+      const newUser = {
+        fullname: signupForm.find('.js-fullname-entry').val(),
+        username: signupForm.find('.js-username-entry').val(),
+        password: signupForm.find('.js-password-entry').val()
+      };
+
+      api.create('/api/users', newUser)
+        .then(response => {
+          signupForm[0].reset();
+          showSuccessMessage(`Thank you, ${response.fullname || response.username} for signing up!`);
+        })
+        .catch(handleErrors);
+    });
+  }
+
+  function handleLoginSubmit() {
+    $('.js-login-form').on('submit', event => {
+      event.preventDefault();
+
+      const loginForm = $(event.currentTarget);
+      const loginUser = {
+        username: loginForm.find('.js-username-entry').val(),
+        password: loginForm.find('.js-password-entry').val()
+      };
+
+      api.create('/api/login', loginUser)
+        .then(response => {
+          store.authToken = response.authToken;
+          store.authorized = true;
+          loginForm[0].reset();
+
+          return Promise.all([
+            api.search('/api/notes'),
+            api.search('/api/folders'),
+            api.search('/api/tags')
+          ]);
+        })
+        .then(([notes, folders, tags]) => {
+          store.notes = notes;
+          store.folders = folders;
+          store.tags = tags;
+          render();
+        })
+        .catch(handleErrors);
+    });
+  }
+
   function bindEventListeners() {
     handleNoteItemClick();
     handleNoteSearchSubmit();
@@ -376,6 +431,9 @@ const noteful = (function () {
     handleTagClick();
     handleNewTagSubmit();
     handleTagDeleteClick();
+
+    handleSignupSubmit();
+    handleLoginSubmit();
   }
 
   // This object contains the only exposed methods from this module:
